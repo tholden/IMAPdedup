@@ -1,5 +1,9 @@
 # IMAPdedup Change Log
 
+## [1.3] - 2026-08-10
+
+* Attempt fix for issue #57: 'Too many items to unpack' from some servers which return extraneous lines in the response.
+
 ## [1.2] - 2024-11-18
 
 * Add the '-d' (or --delete) option, which will expunge all messages marked for deletion from the server.
