@@ -375,18 +375,28 @@ def get_msg_headers(server: imaplib.IMAP4, msg_ids: List[int]) -> List[Tuple[int
     """
     Get the dict of headers for each message in the list of provided IDs.
     Return a list of tuples:  [ (msgid, header_bytes), (msgid, header_bytes)... ]
-    The returned header_bytes can be parsed by 
     """
     # Get the header info for each message
     message_ids_str = ",".join(map(str, msg_ids))
     ms = check_response(server.fetch(message_ids_str, "(RFC822.HEADER)"))
 
-    # There are two lines per message in the response
+    # Each message we asked for normally shows up as a (info, header_bytes) tuple,
+    # e.g. (b'123 (RFC822.HEADER {1234}', b'...headers...'), followed by a plain
+    # b')' entry to close the parenthesised list. However, some servers also mark
+    # the message \Seen as a side effect of this fetch and send an unsolicited
+    # "* 123 FETCH (FLAGS (\Seen))" update, which imaplib lumps into this same
+    # list (it only buckets untagged responses by type, not by which command
+    # triggered them). That extra entry breaks any assumption of a fixed number
+    # of items per message, so we parse the message number out of each tuple's
+    # info line instead of relying on position, and ignore anything else.
     resp: List[Tuple[int, bytes]] = []
-    for ci in range(len(ms) // 2):
-        mnum = int(msg_ids[ci])
-        _, hinfo = ms[ci * 2]
-        resp.append((mnum, hinfo))
+    for item in ms:
+        if not isinstance(item, tuple) or len(item) != 2:
+            continue
+        info, hinfo = item
+        match = re.match(rb"^\s*(\d+)", info)
+        if match:
+            resp.append((int(match.group(1)), hinfo))
     return resp
 
 
